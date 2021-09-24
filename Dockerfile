@@ -3,6 +3,11 @@
 
 FROM ubuntu:latest
 
+ENV CMAKE_VER "3.16"
+ENV CMAKE_VERSION "3.16.6"
+
+ENV DEBIAN_FRONTEND noninteractive
+
 # These libs are required by the AWS C++ SDK and should remain inside
 # of any child container using this image as a base image.
 ENV AWS_SDK_CPP_REQUIRED_LIBS \
@@ -40,31 +45,28 @@ ENV AWS_SDK_CPP_USEFUL_TOOLS \
 	git
 
 RUN apt-get update \
-	&& apt-get install -y \
+	&& DEBIAN_FRONTEND=noninteractive apt-get install -y \
 	$AWS_SDK_CPP_BUILD_TOOLS \
 	$AWS_SDK_CPP_REQUIRED_LIBS \
 	$AWS_SDK_CPP_USEFUL_TOOLS \
 	--no-install-recommends \
-	&& mkdir -p /tmp/build && cd /tmp/build \
-	&& curl -sSL https://cmake.org/files/v${CMAKE_VER}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz > cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz \
+	&& mkdir -p /tmp/build && cd /tmp/build
+RUN curl -sSL https://cmake.org/files/v${CMAKE_VER}/cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz > cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz \
 	&& tar -v -zxf cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz \
 	&& rm -f cmake-${CMAKE_VERSION}-Linux-x86_64.tar.gz \
 	&& cd cmake-${CMAKE_VERSION}-Linux-x86_64 \
 	&& cp -rp bin/* /usr/local/bin/ \
 	&& cp -rp share/* /usr/local/share/ \
 	&& cd / && rm -rf /tmp/build \
-	&& mkdir -p /tmp/build/build && cd /tmp/build \
-	&& curl -sSL https://github.com/aws/aws-sdk-cpp/archive/${AWS_SDK_CPP_VERSION}.zip > aws-sdk-cpp-${AWS_SDK_CPP_VERSION}.zip \
-	&& unzip aws-sdk-cpp-${AWS_SDK_CPP_VERSION}.zip \
-	&& rm -f aws-sdk-cpp-${AWS_SDK_CPP_VERSION}.zip \
-	&& cd /tmp/build/build \
-	&& cmake \
+	&& mkdir -p /tmp/build/build && cd /tmp/build
+RUN git clone --recurse-submodules https://github.com/aws/aws-sdk-cpp \
+	&& cd /tmp/build/build
+RUN cmake \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DENABLE_TESTING=OFF \
 		-DAUTORUN_UNIT_TESTS=OFF \
-		-DBUILD_SHARED_LIBS=${BUILD_SHARED_LIBS} \
-		-DENABLE_UNITY_BUILD=${ENABLE_UNITY_BUILD} \
-		../aws-sdk-cpp-${AWS_SDK_CPP_VERSION} \
+        -DBUILD_ONLY="rds" \
+		../aws-sdk-cpp \
 	&& make \
 	&& make install \
 	&& make clean \
